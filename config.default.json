@@ -1,0 +1,20 @@
+{
+  "username": "Merou Last",
+  "fields": [
+    { "key": "headline", "type": "string", "value": "I'm not late. I'm Last.", "enabled": true },
+    { "key": "tagline", "type": "string", "value": "Last to speak. First to understand.", "enabled": true },
+    { "key": "status", "type": "string", "value": "Available", "enabled": true },
+    { "key": "stat_a", "type": "string", "value": "Roleplay", "enabled": true },
+    { "key": "stat_b", "type": "string", "value": "Discord Systems", "enabled": true },
+    { "key": "stat_c", "type": "string", "value": "Web Design", "enabled": true },
+    { "key": "progress_current", "type": "number", "value": 70, "enabled": true },
+    { "key": "progress_max", "type": "number", "value": 100, "enabled": true },
+    { "key": "icon_image", "type": "media", "value": "/assets/mark-last.png", "enabled": true },
+    { "key": "banner_image", "type": "media", "value": "/assets/banner-dark.png", "enabled": true }
+  ],
+  "presets": [
+    { "name": "Available", "values": { "status": "Available", "progress_current": 70 } },
+    { "name": "Focus", "values": { "status": "Focus mode", "progress_current": 95 } },
+    { "name": "Away", "values": { "status": "Away", "progress_current": 10 } }
+  ]
+}

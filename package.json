@@ -1,0 +1,15 @@
+{
+  "name": "merou-widget-studio",
+  "version": "1.0.0",
+  "description": "Edit your Discord profile widget data from a private dashboard. Runs free on Render.",
+  "main": "server.js",
+  "private": true,
+  "license": "MIT",
+  "engines": { "node": ">=18" },
+  "scripts": { "start": "node server.js", "test": "node selftest.js" },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongodb": "^6.8.0"
+  }
+}

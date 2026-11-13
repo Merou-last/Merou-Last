@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Widget Studio</title>
+<style>
+:root{--bg:#0b0b11;--panel:#13131b;--line:#23232f;--text:#e8eaf0;--mute:#8b8fa1;--acc:#e8eaf0;--ok:#7fd1a0;--bad:#f08a8a;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.wrap{max-width:760px;margin:0 auto;padding:18px 16px 90px}
+h1{font-size:18px;letter-spacing:.14em;text-transform:uppercase;margin:6px 0 2px;font-weight:600}
+.sub{color:var(--mute);font-size:13px;margin-bottom:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+label{display:block;color:var(--mute);font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin:0 0 4px}
+input,select{width:100%;background:#0d0d14;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font:inherit;min-width:0}
+input:focus,select:focus{outline:none;border-color:#5b5f78}
+button{background:var(--acc);color:#0b0b11;border:0;border-radius:10px;padding:10px 14px;font:inherit;font-weight:600;cursor:pointer;display:inline-flex;gap:8px;align-items:center}
+button.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+button.danger{background:transparent;color:var(--bad);border:1px solid #3a2326;padding:8px 10px}
+button:disabled{opacity:.5}
+svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.grid{display:grid;grid-template-columns:1fr 120px;gap:8px;margin-bottom:8px}
+.chip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--mute)}
+.chip i{width:8px;height:8px;border-radius:50%;background:var(--bad);display:inline-block}
+.chip.on i{background:var(--ok)}
+.thumb{width:44px;height:44px;border-radius:8px;border:1px solid var(--line);object-fit:cover;background:#0d0d14}
+.bar{position:fixed;left:0;right:0;bottom:0;background:rgba(11,11,17,.94);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
+.bar .in{max-width:760px;margin:0 auto;display:flex;gap:8px}
+.bar button{flex:1;justify-content:center}
+.msg{font-size:13px;margin-top:8px;word-break:break-word}.msg.ok{color:var(--ok)}.msg.bad{color:var(--bad)}
+.tog{display:flex;align-items:center;gap:8px;color:var(--mute);font-size:13px}
+.tog input{width:auto}
+.hide{display:none}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1M14 10a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></symbol>
+</svg>
+
+<div class="wrap" id="app"></div>
+<div class="bar hide" id="bar"><div class="in">
+  <button class="ghost" id="btnPush"><svg><use href="#i-send"/></svg>Push only</button>
+  <button id="btnSave"><svg><use href="#i-save"/></svg>Save &amp; push</button>
+</div></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const app = $('#app'), bar = $('#bar');
+let S = null, ASSETS = [];
+
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === 'class') el.className = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const kid of kids.flat()) if (kid != null) el.append(kid.nodeType ? kid : document.createTextNode(kid));
+  return el;
+}
+const icon = (id) => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.innerHTML = `<use href="#i-${id}"/>`; return s; };
+
+async function api(path, method = 'GET', body) {
+  const res = await fetch(path, { method, headers: { 'Content-Type': 'application/json', 'x-requested-with': 'fetch' }, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && path !== '/api/login') { S = null; render(); throw new Error('Session expired.'); }
+  if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+  return data;
+}
+
+function say(el, text, ok) { el.textContent = text; el.className = 'msg ' + (ok ? 'ok' : 'bad'); }
+
+// ---------------------------------------------------------------- login
+function loginView() {
+  bar.classList.add('hide');
+  const pw = h('input', { type: 'password', placeholder: 'Admin password', autocomplete: 'current-password' });
+  const msg = h('div', { class: 'msg' });
+  const go = async () => { try { await api('/api/login', 'POST', { password: pw.value }); await boot(); } catch (e) { say(msg, e.message, false); } };
+  pw.addEventListener('keydown', (e) => e.key === 'Enter' && go());
+  return h('div', {}, h('h1', {}, 'Widget Studio'), h('div', { class: 'sub' }, 'Private dashboard'),
+    h('div', { class: 'card' }, h('label', {}, 'Password'), pw, h('div', { class: 'row', style: 'margin-top:10px' }, h('button', { onclick: go }, 'Sign in')), msg));
+}
+
+// ---------------------------------------------------------------- editor
+function fieldCard(f, i) {
+  const key = h('input', { value: f.key, placeholder: 'key', oninput: (e) => (f.key = e.target.value) });
+  const type = h('select', { onchange: (e) => { f.type = e.target.value; if (f.type === 'number') f.value = Number(f.value) || 0; render(); } },
+    ['string', 'number', 'media'].map((t) => h('option', { value: t, selected: f.type === t }, t)));
+  let valueUi;
+  if (f.type === 'media') {
+    const input = h('input', { value: f.value, placeholder: '/assets/file.png or https://...', oninput: (e) => { f.value = e.target.value; thumb.src = src(); } });
+    const src = () => (String(f.value).startsWith('/') ? f.value : f.value);
+    const thumb = h('img', { class: 'thumb', src: src(), alt: '' });
+    const pick = h('select', { onchange: (e) => { if (e.target.value) { f.value = e.target.value; render(); } } },
+      h('option', { value: '' }, 'Choose from library'), ASSETS.map((a) => h('option', { value: a.path }, a.name)));
+    valueUi = h('div', {}, h('div', { class: 'row', style: 'flex-wrap:nowrap;margin-bottom:8px' }, thumb, pick), input);
+  } else if (f.type === 'number') {
+    valueUi = h('input', { type: 'number', step: 'any', value: f.value, oninput: (e) => (f.value = e.target.value === '' ? 0 : Number(e.target.value)) });
+  } else {
+    valueUi = h('input', { value: f.value, maxlength: 100, oninput: (e) => (f.value = e.target.value) });
+  }
+  return h('div', { class: 'card' },
+    h('div', { class: 'grid' }, h('div', {}, h('label', {}, 'Key'), key), h('div', {}, h('label', {}, 'Type'), type)),
+    h('label', {}, 'Value'), valueUi,
+    h('div', { class: 'row', style: 'justify-content:space-between;margin-top:10px' },
+      h('label', { class: 'tog' }, h('input', { type: 'checkbox', checked: f.enabled !== false, onchange: (e) => (f.enabled = e.target.checked) }), 'Show on profile'),
+      h('button', { class: 'danger', onclick: () => { S.config.fields.splice(i, 1); render(); }, title: 'Remove' }, icon('trash'))));
+}
+
+function editorView() {
+  bar.classList.remove('hide');
+  const c = S.config;
+  const msg = h('div', { class: 'msg', id: 'msg' });
+  const lp = S.lastPush;
+  const status = h('div', { class: 'row', style: 'margin-bottom:12px' },
+    h('span', { class: 'chip ' + (S.linked ? 'on' : '') }, h('i'), S.linked ? 'Account linked' : 'Not linked'),
+    h('span', { class: 'chip ' + (lp && lp.ok ? 'on' : '') }, h('i'), lp ? (lp.ok ? 'Last push OK' : 'Last push failed') : 'No push yet'),
+    h('span', { class: 'chip' }, 'Storage: ' + S.storage));
+  const link = S.linked ? null : h('div', { class: 'card' },
+    h('div', { style: 'margin-bottom:10px' }, 'Authorize this application once so it can write to your profile.'),
+    h('button', { onclick: () => (location.href = '/auth') }, icon('link'), 'Link Discord account'));
+  const warn = S.ready ? null : h('div', { class: 'card msg bad' }, 'Missing DISCORD_APP_ID, DISCORD_BOT_TOKEN or DISCORD_CLIENT_SECRET in the server environment.');
+  const lastErr = lp && !lp.ok ? h('div', { class: 'card msg bad' }, `${lp.status || ''} ${lp.error || ''} ${lp.hint ? '| ' + lp.hint : ''}`) : null;
+
+  const user = h('input', { value: c.username, maxlength: 100, oninput: (e) => (c.username = e.target.value) });
+  const presetSel = h('select', {}, c.presets.map((p) => h('option', { value: p.name }, p.name)));
+  const presets = h('div', { class: 'card' }, h('label', {}, 'Presets (quick status changes)'),
+    h('div', { class: 'row', style: 'flex-wrap:nowrap' }, presetSel,
+      h('button', { class: 'ghost', onclick: async () => { try { const r = await api('/api/preset', 'POST', { name: presetSel.value }); S.config = r.config; S.lastPush = r.push; render(); } catch (e) { say(msg, e.message, false); } } }, 'Apply')),
+    h('div', { class: 'row', style: 'margin-top:8px' },
+      h('button', { class: 'ghost', onclick: () => { const name = prompt('Preset name'); if (!name) return; const values = {}; c.fields.forEach((f) => (values[f.key] = f.value)); c.presets = c.presets.filter((p) => p.name !== name).concat({ name, values }).slice(-10); render(); } }, 'Save current as preset'),
+      h('button', { class: 'ghost', onclick: () => { c.presets = c.presets.filter((p) => p.name !== presetSel.value); render(); } }, 'Delete selected')));
+
+  const fields = c.fields.map(fieldCard);
+  const add = h('button', { class: 'ghost', onclick: () => { c.fields.push({ key: 'new_field', type: 'string', value: '', enabled: true }); render(); } }, icon('plus'), 'Add field');
+
+  $('#btnSave').onclick = () => doSave(true);
+  $('#btnPush').onclick = async () => { try { const r = await api('/api/push', 'POST'); S.lastPush = r; say($('#msg'), r.ok ? 'Pushed to Discord.' : `${r.error || 'Failed'} ${r.hint || ''}`, r.ok); } catch (e) { say($('#msg'), e.message, false); } };
+
+  return h('div', {},
+    h('div', { class: 'row', style: 'justify-content:space-between' }, h('h1', {}, 'Widget Studio'), h('button', { class: 'ghost', onclick: async () => { await api('/api/logout', 'POST'); S = null; render(); } }, icon('out'), 'Sign out')),
+    h('div', { class: 'sub' }, 'Edit your profile widget data. Changes reach Discord when you save.'),
+    status, warn, link, lastErr,
+    h('div', { class: 'card' }, h('label', {}, 'Display name'), user),
+    presets, fields, add, msg);
+}
+
+async function doSave(push) {
+  try {
+    const r = await api('/api/config', 'PUT', { config: S.config, push });
+    S.config = r.config; if (r.push) S.lastPush = r.push;
+    render();
+    const m = $('#msg');
+    if (r.push) say(m, r.push.ok ? 'Saved and pushed to Discord.' : `Saved, but push failed: ${r.push.error || ''} ${r.push.hint || ''}`, r.push.ok); else say(m, 'Saved.', true);
+  } catch (e) { say($('#msg') || h('div'), e.message, false); }
+}
+
+function render() { app.replaceChildren(S ? editorView() : loginView()); }
+
+async function boot() {
+  try {
+    S = await api('/api/state');
+    ASSETS = (await api('/api/assets')).assets;
+    if (new URLSearchParams(location.search).get('linked')) history.replaceState({}, '', '/admin');
+  } catch { S = null; }
+  render();
+}
+boot();
+</script>
+</body>
+</html>
